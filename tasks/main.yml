@@ -33,7 +33,7 @@
       service:
           name: "docker"
           state: restarted
-      when: daemon.changed == true
+      #when: daemon.changed == true
     - name: "install iproute-tc package"
       package:
           name: "iproute-tc"
@@ -48,9 +48,9 @@
     - name: "configure master as client"
       shell: "echo Y | cp -i /etc/kubernetes/admin.conf $HOME/.kube/config && chown $(id -u):$(id -g) $HOME/.kube/config"
     - name: "install flannel"
-      shell: "kubectl apply  -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml"
+      command: "kubectl apply  -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml"
     - name: "generate new token"
-      shell: "kubeadm token create  --print-join-command"
+      command: "kubeadm token create  --print-join-command"
       register: token
     - name: "Add dummy  host"
       add_host:
