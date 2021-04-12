@@ -1,0 +1,62 @@
+---
+- name: "k8s master node setup"
+  block:
+    - name: "install docker"
+      package:
+          name: docker
+          state: present
+    - name: "start docker service"
+      service:
+         name: docker
+         state: started
+         enabled: true
+    - name: "yum reconfigure for k8s"
+      copy:
+          src: "kubernetes.repo"
+          dest: "/etc/yum.repos.d/"
+    - name: "install kubeadm package"
+      package:
+          name: "kubeadm"
+          state: present
+      register: kubeadm
+    - name: "start kubelet service"
+      service:
+          name: kubelet
+          state: started
+          enabled: true
+    - name: "setting driver as systemd"
+      copy:
+          src: "daemon.json"
+          dest: "/etc/docker/"
+      register: daemon
+    - name: "restart docker service"
+      service:
+          name: "docker"
+          state: restarted
+      when: daemon.changed == true
+    - name: "install iproute-tc package"
+      package:
+          name: "iproute-tc"
+          state: present
+    - name: "configure master node"
+      shell: "kubeadm config images pull && kubeadm init --pod-network-cidr=10.244.0.0/16 --ignore-preflight-errors=NumCPU --ignore-preflight-errors=Mem"
+      #ignore_errors: true
+    - name: "create .kube directory in home"
+      file:
+          path: "~/.kube"
+          state: directory
+    - name: "configure master as client"
+      shell: "echo Y | cp -i /etc/kubernetes/admin.conf $HOME/.kube/config && chown $(id -u):$(id -g) $HOME/.kube/config"
+    - name: "install flannel"
+      shell: "kubectl apply  -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml"
+    - name: "generate new token"
+      shell: "kubeadm token create  --print-join-command"
+      register: token
+    - name: "Add dummy  host"
+      add_host:
+          name: "Dummy_Host"
+          token: "{{ token.stdout_lines[0] }}"
+  rescue:
+      - name: "debuging..."
+        debug:
+             msg: "It look likes master node is already configured. To execute remaining task uncomment ignore_errors module."
